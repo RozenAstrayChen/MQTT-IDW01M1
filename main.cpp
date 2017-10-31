@@ -13,6 +13,7 @@
 #define MQTT_PORT 1883
 //MQTT use Topic 
 #define TOPIC "temp"
+#define SUB_TOPIC "LED"
 
 
 //Wifi network
@@ -37,16 +38,26 @@ MQTT::Message message;
 MQTTString TopicName={TOPIC};
 MQTT::MessageData MsgData(TopicName, message);
 
+void subscribe_LED(char* msg){
+	int value = atoi(msg);
+	//printf("value = %d\n", value);
+	if(value ==1){
+		myled = !myled;
+	}
+	
+}
+
 
 void subscribe_cb(MQTT::MessageData & msgMQTT) {
     char msg[MQTT_MAX_PAYLOAD_SIZE];
     msg[0]='\0';
     strncat (msg, (char*)msgMQTT.message.payload, msgMQTT.message.payloadlen);
     printf ("--->>> subscribe_cb msg: %s\n\r", msg);
+    subscribe_LED(msg);
 }
 int subscribe(MQTT::Client<MQTTWiFi, Countdown, MQTT_MAX_PACKET_SIZE>* client, MQTTWiFi* ipstack)
 {
-    char* pubTopic = TOPIC;    
+    char* pubTopic = SUB_TOPIC;    
     return client->subscribe(pubTopic, MQTT::QOS1, subscribe_cb);
 }
 
@@ -89,9 +100,9 @@ int connect(MQTT::Client<MQTTWiFi, Countdown, MQTT_MAX_PACKET_SIZE>* client,MQTT
     if((rc = client->connect(data)) == 0){
     	connected = true;
     	printf("--->MQTT Connected\n\r");
-#ifdef SUBSCRIBE
-        if (!subscribe(client, ipstack)) printf ("--->>>MQTT subscribed to: %s\n\r",TOPIC);
-#endif 
+//#ifdef SUBSCRIBE
+        if (!subscribe(client, ipstack)) printf ("--->>>MQTT subscribed to: %s\n\r",SUB_TOPIC);
+//#endif 
     }else {
         WARN("MQTT connect returned %d\n", rc);        
     }
@@ -172,7 +183,7 @@ int main(int argc, char const *argv[])
 	MQTT::Client<MQTTWiFi, Countdown, MQTT_MAX_PACKET_SIZE> client(ipstack);
 	attemptConnect(&client, &ipstack);
 
-	myled=1;         
+	   
    int count = 0;    
 //    tyeld.start();    
     while (true)
@@ -180,9 +191,9 @@ int main(int argc, char const *argv[])
         if (++count == 100)
         {               // Publish a message every second
             if (publish(&client, &ipstack) != 0) { 
-                myled=0;
+               
                 attemptConnect(&client, &ipstack);   // if we have lost the connection                
-            } else myled=1;
+            }
             count = 0;
         }        
 //        int start = tyeld.read_ms();
