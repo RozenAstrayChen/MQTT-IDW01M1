@@ -1,0 +1,6 @@
+# dir
+BUILD/
+mbed/
+MQTT/
+NetworkSocketAPI/
+X_NUCLEO_IDW01M1v2/
