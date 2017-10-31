@@ -1,4 +1,5 @@
 #include "mbed.h"
+#include "BME280.hpp"
 #include "SpwfInterface.h"
 #include "TCPSocket.h"
 #include "MQTTClient.h"
@@ -8,10 +9,10 @@
 #define MQTT_MAX_PACKET_SIZE 250
 #define MQTT_MAX_PAYLOAD_SIZE 300
 //Configuration value needed to connect Red-node
-#define BROKER_URL "192.168.0.10"
+#define BROKER_URL "192.168.0.10";
 #define MQTT_PORT 1883
 //MQTT use Topic 
-#define TOPIC "fuck"
+#define TOPIC "temp"
 
 
 //Wifi network
@@ -19,6 +20,7 @@
 #define PASSW "66666667"
 
 DigitalOut myled(LED1);
+BME280 bmpSensor;
 
 int connack_rc = 0;    // MQTT connack return code
 const char * ip_addr = "";
@@ -35,8 +37,26 @@ MQTT::Message message;
 MQTTString TopicName={TOPIC};
 MQTT::MessageData MsgData(TopicName, message);
 
+
+void subscribe_cb(MQTT::MessageData & msgMQTT) {
+    char msg[MQTT_MAX_PAYLOAD_SIZE];
+    msg[0]='\0';
+    strncat (msg, (char*)msgMQTT.message.payload, msgMQTT.message.payloadlen);
+    printf ("--->>> subscribe_cb msg: %s\n\r", msg);
+}
+int subscribe(MQTT::Client<MQTTWiFi, Countdown, MQTT_MAX_PACKET_SIZE>* client, MQTTWiFi* ipstack)
+{
+    char* pubTopic = TOPIC;    
+    return client->subscribe(pubTopic, MQTT::QOS1, subscribe_cb);
+}
+
+
 int connect(MQTT::Client<MQTTWiFi, Countdown, MQTT_MAX_PACKET_SIZE>* client,MQTTWiFi* ipstack){
-    char* hostname = "192.168.0.10";
+    const char* host = BROKER_URL;
+
+    char hostname[strlen(host) + 1];
+    sprintf(hostname,"%s", host);
+
     SpwfSAInterface& WiFi = ipstack->getWiFi();
 
     //Network Debug statements
@@ -69,7 +89,9 @@ int connect(MQTT::Client<MQTTWiFi, Countdown, MQTT_MAX_PACKET_SIZE>* client,MQTT
     if((rc = client->connect(data)) == 0){
     	connected = true;
     	printf("--->MQTT Connected\n\r");
-    	 /*not to do subscrie*/
+#ifdef SUBSCRIBE
+        if (!subscribe(client, ipstack)) printf ("--->>>MQTT subscribed to: %s\n\r",TOPIC);
+#endif 
     }else {
         WARN("MQTT connect returned %d\n", rc);        
     }
@@ -107,10 +129,16 @@ void attemptConnect(MQTT::Client<MQTTWiFi, Countdown, MQTT_MAX_PACKET_SIZE>* cli
     }
 }
 int publish (MQTT::Client<MQTTWiFi, Countdown, MQTT_MAX_PACKET_SIZE>* client,MQTTWiFi* ipstack){
+	
+    
 	MQTT::Message message;
+	int data = bmpSensor.Temp_read();
 	char *pubTopic = TOPIC;
-	/*send data*/
-	char buf[MQTT_MAX_PAYLOAD_SIZE] = {"NUCLEO_F401RE"};
+	char buf[MQTT_MAX_PAYLOAD_SIZE];
+
+
+	printf("Temp = %d\n", data);
+	sprintf(buf,"%d",data);
 	message.qos = MQTT::QOS0;
 	message.retained = false;
     message.dup = false;
@@ -160,6 +188,7 @@ int main(int argc, char const *argv[])
 //        int start = tyeld.read_ms();
         client.yield(10);  // allow the MQTT client to receive messages
 //        printf ("tyeld: %d\n\r",tyeld.read_ms()-start);
+
     }
 	
 	return 0;
